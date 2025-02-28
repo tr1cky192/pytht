@@ -1,0 +1,88 @@
+{% load static %}
+{% load group_accessor %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Навчальний план</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'style/style.css' %}">
+    <link rel="stylesheet" href="{% static 'style/edu.css' %}">
+</head>
+<body>
+<header>
+    <nav>
+        <ul>
+            <li>
+                <img height="100" width="auto" src="{% static 'images/logo.png' %}" alt="NoImg">
+            </li>
+            <li><a href="{% url 'home_page' %}">Головна</a></li>
+        </ul>
+    </nav>
+</header>
+<main>
+    {% if request.user.is_authenticated %}
+        <div class="content">
+            <h2 class="avg_tag">Середня оцінка за предметами</h2>
+            <div class="table-wrapper">
+                <table class="average-table" style="width: 100% !important;">
+                    <thead>
+                    <tr>
+                        <th>Предмет</th>
+                        <th>Середня оцінка</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for subject, data in subjects.items %}
+                        <tr>
+                            <td data-label="Предмет">{{ subject }}</td>
+                            <td data-label="Оцінка"><a style="text-decoration: none; color: white"
+                                                       href="{% url 'eduplan' student_id rounded %}">
+                                {{ data.average|floatformat:num }}</a></td>
+
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2">Немає інформації про успішність студента.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <h2 class="detail_tag">Деталі оцінок</h2>
+            <table class="details-table">
+                <thead>
+                <tr>
+                    <th>Оцінка</th>
+                    <th>Студент</th>
+                    <th>Тип заняття</th>
+                    <th>Дата оцінки</th>
+                    <th>Предмет</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for student_progress in students_progress %}
+                    <tr>
+                        <td>{{ student_progress.mark }}</td>
+                        <td>{{ student_progress.student.student_full_name }}</td>
+                        <td>{{ student_progress.class_model }}</td>
+                        <td>{{ student_progress.date_of_progress|date:"d-m-Y" }}</td>
+                        <td>{{ student_progress.subject }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5">Немає інформації про успішність студента.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Будь ласка, увійдіть для перегляду цієї інформації.</p>
+    {% endif %}
+</main>
+<footer>
+    <p>&copy; Івано-Франківський медичний фаховий коледж, 2024</p>
+</footer>
+</body>
+</html>

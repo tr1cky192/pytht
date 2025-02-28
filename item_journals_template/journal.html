@@ -1,0 +1,56 @@
+{% load static %}
+{% load group_accessor %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Електронний журнал</title>
+    <link rel="stylesheet" href="{% static 'style/style.css' %}">
+    <link rel="stylesheet" href="{% static 'style/mark.css' %}">
+</head>
+<body>
+<header>
+    <nav>
+        <ul>
+            <li>
+                <img height="100" width="auto" src="{% static 'images/logo.png' %}" alt="NoImg">
+            </li>
+            <li><a href="{% url 'home_page' %}">Головна</a></li>
+            <li class="user-info username-padding">
+                {% if request.user.is_authenticated %}
+                    {% if not request.user|has_group:"students" and is_journal %}
+                        <button style="margin-right: 50px" class="custom-btn" type="button" data-bs-toggle="offcanvas"
+                                data-bs-target="#offcanvasRight"
+                                aria-controls="offcanvasRight"><img class="history-img" src="{% static 'images/archive.png' %}"
+                                                                    height="35px"
+                                                                    width="auto"> <b>Історія операцій </b>
+                        </button>
+                    {% endif %}
+                    <div class="dropdown">
+                    <a href="#" class="dropbtn">{{ user.username }}</a>
+                    <div class="dropdown-content">
+                        {#<a href="{% url 'profile' %}">Профіль</a>#}
+                        <a href="{% url 'logout' %}">Вийти</a>
+                    </div>
+
+                {% else %}
+                    <a href="{% url 'login' %}">Увійти</a>
+                {% endif %}
+                </div>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main>
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+</main>
+<footer>
+    <p>&copy; Івано-Франківський медичний фаховий коледж, 2024</p>
+</footer>
+<script src="{% static 'scripts/journal.js' %}"></script>
+<script src="{% static 'scripts/change_theme.js' %}"></script>
+</body>
+</html>

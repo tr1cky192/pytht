@@ -1,0 +1,38 @@
+{% extends "item_journals/journal.html" %}
+{% load static %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Електронний журнал</title>
+    <link rel="stylesheet" href="{% static 'style/mark.css' %}">
+</head>
+<body>
+<main>
+    <div class="container" id="testContainer">
+        <table class="journal" id="journalTable" border="1">
+            <thead>
+            <tr>
+                <th colspan="2">Група: {{ group }}</th>
+            </thead>
+            <tbody id="studentsBody">
+                {% if progress_by_student %}
+                    {% for student, subjects_progress in progress_by_student.items %}
+                        <tr>
+                            <td colspan="6" class="student-row" style="font-weight: bold;">
+                                <a href="{% url 'eduplan' student.id 'tenths' %}">{{ student.student_full_name }}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</main>
+<script src="{% static 'scripts/journal.js' %}"></script>
+</body>
+</html>
+{% endblock %}

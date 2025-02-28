@@ -1,0 +1,335 @@
+{% extends "item_journals/journal.html" %}
+{% load static %}
+{% load bootstrap5 %}
+
+{% block content %}
+    <!DOCTYPE html>
+    <html lang="uk">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="csrf-token" content="{{ csrf_token }}">
+        <title>Електронний журнал</title>
+        <link rel="stylesheet" href="{% static 'style/mark.css' %}">
+        {% bootstrap_css %}
+        {% bootstrap_javascript %}
+    </head>
+    <body>
+    <main>
+        <div class="error-box" id="error-box">
+            <p style="padding: 10px" id="error-message"></p>
+        </div>
+        <div class="container" id="testContainer">
+            <div id="journal-info">
+                <div class="journal-info-div">
+                    <p class="item_tag"> Пропуски студентів з дисципліни: {{ item }} </p>
+                </div>
+                {% if teachers_for_subject %}
+                    <p class="teacher_tag"> Викладач: {% for teacher in teachers_for_subject %}
+                        {{ teacher.first_name }} {{ teacher.last_name }}
+                        {% if not forloop.last %}, {% endif %}
+                    {% endfor %} </p>
+                {% else %}
+                    <p class="teacher_tag"> Вчителя не призначено.</p>
+                {% endif %}
+                {% if curator %}
+                    <p class="teacher_tag">
+                        Куратор: {{ curator.first_name }} {{ curator.last_name }}
+                    </p>
+                {% else %}
+                    <p class="teacher_tag">
+                        Куратора не призначено.
+                    </p>
+                {% endif %}
+
+                <div class="offcanvas offcanvas-end custom-canvas" tabindex="-1" id="offcanvasRight"
+                     aria-labelledby="offcanvasRightLabel">
+                    <div class="offcanvas-header">
+                        <h4 class="offcanvas-title" id="offcanvasRightLabel"> Історія операцій</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                    </div>
+                    <div class="offcanvas-body">
+                        <div class="history-bar">
+                            <form role="search" method="get"
+                                  action="{% url 'search_journal' item group.group_code "pass" %}">
+                                <input class="student_input" name="q" type="search" placeholder="Пошук..."
+                                       aria-label="Search">
+                                <button type="submit" class="btn btn-outline-light">Знайти</button>
+                            </form>
+                            <a href="{% url 'clear_journal' item group.group_code "pass" subgroup %}"
+                               class="btn btn-dark">Очистити
+                                історію</a>
+                        </div>
+                        {% for operation in history %}
+                            <div class="history-element-div">
+                                <p><span>{{ operation.operation_date }}</span>:
+                                    Користувач {{ operation.created_by.username }}
+                                    {{ operation.operation }}
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <table class="journal" id="journalTable" border="1">
+                <thead>
+                <tr>
+                    <th colspan="2">Студенти</th>
+                    <th>Місяць</th>
+                    <th id="monthHeaderColspan">
+                        <a class="month_butt" id="previousMonth"
+                           href="?month={{ previous_month }}">{{ previous_month_name }}</a>
+                        <span class="current_month" id="currentMonth">{{ current_month_name }}</span>
+                        <a class="month_butt" id="nextMonth" href="?month={{ next_month }}">{{ next_month_name }}</a>
+                    </th>
+                </tr>
+                <tr id="value_type">
+                    <th rowspan="3">Номер студента</th>
+                    <th rowspan="3">ПІБ студента</th>
+                    <th id="type_class">Тип заняття</th>
+                </tr>
+                <tr id="day_class">
+                    <td>День</td>
+                </tr>
+                <tr id="theme_class">
+                    <td>Тема</td>
+                </tr>
+                </thead>
+                <tbody id="studentsBody">
+                </tbody>
+            </table>
+
+            <div id="myModal" class="custom-modal">
+                <div class="custom-modal-content">
+                    <p id="mark-info"></p>
+                    <div id="skip-div" style="display: block;">
+                        <label for="absent-reason"> Вкажіть причину відсутності </label>
+                        <input type="text" id="absent-reason"/>
+                        <label for="worked-out"> Заняття відправцьовано на:</label>
+                        <input type="number" max="12" min="1" id="worked-out">
+                    </div>
+                    <div class="class-buttons">
+                        <a class="student_button" id="ready-button" style="display: block;"> Готово </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'scripts/journal.js' %}"></script>
+    <script>
+        var data1 = JSON.parse("{{ data| escapejs }}");
+        var data2 = JSON.parse("{{ data2| escapejs }}");
+
+        console.log(data2)
+        document.addEventListener('DOMContentLoaded', function () {
+            var lecturesCount = data1.lectures_count;
+            var colspanValue = lecturesCount + 3;
+            document.getElementById('monthHeaderColspan').setAttribute('colspan', colspanValue);
+        });
+
+        let style_marks = {
+            "Н": "#ff6363",
+            "Г": "#5cc6ff",
+            "НБ": "#fc7f49",
+        }
+
+        for (let i = 0; i < data1["count"]; i++) {
+            let studentTr = document.createElement('tr');
+            studentTr.setAttribute("id", `student-tr-${i}`);
+            studentTr.setAttribute("class", "student_info");
+            document.getElementById("studentsBody").append(studentTr);
+
+            let studentTd = document.createElement("td");
+            studentTd.setAttribute("id", `student-num-${i}`);
+            studentTd.textContent = (i + 1).toString();
+            document.getElementById(`student-tr-${i}`).append(studentTd);
+
+            let studentNameTd = document.createElement("td")
+            studentNameTd.setAttribute("id", `student-name-${i}`);
+            studentNameTd.setAttribute("colspan", "2");
+            studentNameTd.textContent = data1["names"][i];
+            document.getElementById(`student-tr-${i}`).append(studentNameTd);
+
+            for (let j = 0; j < data1["lectures_count"]; j++) {
+                let studentRowInput = document.createElement("div");
+                studentRowInput.setAttribute("class", "student_input");
+                studentRowInput.style.height = "4vh"
+                studentRowInput.setAttribute("id", `student-input-${i}-${j}-${data1["students"][i]}`);
+                if (data2[`${studentRowInput.id + "-check"}`]) {
+                    studentRowInput.style.color = "#636160";
+                }
+
+                let progress = data1["progress"].find(p => p["mark_id"] === `student-input-${i}-${j}-${data1["students"][i]}`);
+                if (progress) {
+                    if (!isNaN(progress["mark"])) {
+                        studentRowInput.textContent = "H";
+                        studentRowInput.style.color = "#636160";
+                    } else {
+                        studentRowInput.textContent = progress["mark"];
+                        studentRowInput.style.color = style_marks[progress["mark"]];
+                    }
+                }
+
+                let studentInputTd = document.createElement("td");
+                document.getElementById(`student-tr-${i}`).append(studentInputTd);
+                studentInputTd.setAttribute("id", `student-td-${i}-${j}`);
+                studentInputTd.setAttribute("class", "td-div-position");
+
+                document.getElementById(`student-td-${i}-${j}`).append(studentRowInput);
+            }
+        }
+
+        for (let i = 0; i < data1["lectures_count"]; i++) {
+            let typeTd = document.createElement('td');
+            typeTd.setAttribute("id", `class-lecture-td-${i}`);
+            let typeInput = document.createElement('input');
+            typeInput.setAttribute("class", "student_input");
+            typeInput.setAttribute("id", `class-type-inp-${i}`);
+            typeInput.disabled = true;
+            typeInput.setAttribute("value", `${data1["lectures"][i]["type"]}`);
+
+
+            document.getElementById('value_type').append(typeTd);
+            document.getElementById(`class-lecture-td-${i}`).append(typeInput);
+
+            let dateTd = document.createElement('td');
+            dateTd.setAttribute("id", `class-day-td-${i}`);
+            let dateInput = document.createElement('input');
+            dateInput.setAttribute("class", "student_input");
+            dateInput.setAttribute("id", `class-date-inp-${i}`);
+            dateInput.disabled = true;
+            dateInput.setAttribute("type", "date");
+            if (data1["month"] < 10) {
+                dateInput.defaultValue = `${data1["year"]}-0${data1["month"]}-01`
+            } else {
+                dateInput.defaultValue = `${data1["year"]}-${data1["month"]}-01`
+            }
+
+            dateInput.setAttribute("value", `${data1["lectures"][i]["date"]}`);
+
+
+            document.getElementById('day_class').append(dateTd);
+            document.getElementById(`class-day-td-${i}`).append(dateInput);
+
+            let themeTd = document.createElement('td');
+            themeTd.setAttribute("id", `class-theme-td-${i}`);
+            let themeInput = document.createElement('input');
+            themeInput.setAttribute("class", "student_input");
+            themeInput.setAttribute("id", `class-theme-inp-${i}`);
+            themeInput.disabled = true;
+            themeInput.setAttribute("value", `${data1["lectures"][i]["theme"]}`);
+
+
+            document.getElementById('theme_class').append(themeTd);
+            document.getElementById(`class-theme-td-${i}`).append(themeInput);
+
+            let identifierInput = document.createElement('input');
+            identifierInput.setAttribute("id", `class-identifier-${i}`);
+            identifierInput.setAttribute("type", "hidden");
+            identifierInput.setAttribute("value", `${data1["lectures"][i]["identifier"]}`);
+
+            document.getElementById('theme_class').append(identifierInput);
+
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var studentInputs = document.querySelectorAll('div[id^="student"]');
+            studentInputs.forEach(function (input) {
+                input.addEventListener('dblclick', function (event) {
+                    if (input.textContent !== "" && input.textContent !== "H") {
+                        var modal = document.getElementById("myModal");
+                        modal.style.display = "block";
+
+                        var pMark = document.getElementById("mark-info")
+                        pMark.textContent = event.target.textContent;
+
+                        let absentReasonText = document.getElementById("absent-reason")
+                        absentReasonText.setAttribute("class", "student_input")
+                        if (data2[event.target.id.toString() + "-ar"]) {
+                            absentReasonText.setAttribute("value", data2[event.target.id.toString() + "-ar"])
+                        } else {
+                            absentReasonText.setAttribute("value", "")
+                        }
+
+                        window.onclick = function (event) {
+                            if (event.target === modal) {
+                                modal.style.display = "none";
+                            }
+                        };
+
+                        let workedOn = document.getElementById("worked-out");
+                        workedOn.setAttribute("class", "student_input")
+                        var readyButton = document.getElementById("ready-button");
+                        readyButton.onclick = function () {
+                            let absentReasonText = document.getElementById("absent-reason").value;
+
+                            let beforeWorkedOn = event.target.textContent;
+                            var worked_out_json = {
+                                "absent_id": data2[event.target.id.toString()],
+                                "absent_reason": absentReasonText,
+                                "worked_on": workedOn.value,
+                                "before_worked": beforeWorkedOn,
+                            }
+
+                            fetch('/items/worked_out_json/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCookie('csrftoken')
+                                },
+                                body: JSON.stringify(worked_out_json)
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('Success', data);
+                                    location.reload()
+                                })
+                                .catch((error) => {
+                                    console.error('Error', error);
+
+                                });
+
+                        }
+                    }
+                });
+            });
+        });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie) {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+
+            return cookieValue;
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            var offcanvasRight = new bootstrap.Offcanvas(document.getElementById('offcanvasRight'));
+
+            if (localStorage.getItem('offcanvasRightOpen') === 'true') {
+                offcanvasRight.show();
+            }
+
+            $('#offcanvasRight').on('shown.bs.offcanvas', function () {
+                localStorage.setItem('offcanvasRightOpen', 'true');
+            });
+
+            $('#offcanvasRight').on('hidden.bs.offcanvas', function () {
+                localStorage.setItem('offcanvasRightOpen', 'false');
+            });
+        });
+    </script>
+    </body>
+    </html>
+
+{% endblock %}

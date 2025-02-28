@@ -1,0 +1,84 @@
+{% extends "item_journals/journal.html" %}
+{% load static %}
+{% load group_accessor %}
+
+{% block content %}
+    <!DOCTYPE html>
+    <html lang="uk">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Електронний журнал</title>
+        <link rel="stylesheet" href="{% static 'style/mark.css' %}">
+    </head>
+    <body>
+    <main>
+        <div class="container" id="testContainer">
+            <table class="journal" id="journalTable" border="1">
+                <thead>
+                <tr>
+                    <th colspan="2">Студент: {{ student.student_full_name }}</th>
+                    <th colspan="4">
+                        <a class="month_butt" id="previousMonth"
+                           href="?month={{ previous_month }}">{{ previous_month_name }}</a>
+                        <span class="current_month" id="currentMonth"
+                              style="padding-left: 50px; padding-right: 50px">{{ current_month_name }}</span>
+                        <a class="month_butt" id="nextMonth" href="?month={{ next_month }}">{{ next_month_name }}</a>
+                    </th>
+                </tr>
+                <tr>
+                    <th>No.</th>
+                    <th>Тема заняття</th>
+                    <th>Дата заняття</th>
+                    <th>Тип заняття</th>
+                    <th>Оцінка</th>
+                    <th>Відпрацювання</th>
+                </tr>
+                </thead>
+                <tbody id="studentsBody">
+                {% if progress_by_subject %}
+                    {% for subject, progresses in progress_by_subject.items %}
+                        <tr>
+                            <td colspan="6" class="subject-row">{{ subject.item_name }}</td>
+                        </tr>
+                        {% for progress in progresses %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ progress.class_model.theme_of_class }}</td>
+                                <td>{{ progress.lesson_date|date:"d-m-Y" }}</td>
+                                <td>{{ progress.class_model.type_of_class }}</td>
+                                {% if progress.worked_out.before_worked_out %}
+                                    <td>{{ progress.worked_out.before_worked_out }}</td>
+                                {% else %}
+                                    <td>{{ progress.mark }}</td>
+                                {% endif %}
+
+                                {% if progress.mark == "Г" %}
+                                    <td style="color: green">
+                                        Не потребує відпрацювання
+                                    </td>
+                                {% elif not progress.worked_out or not progress.worked_out.is_worked_out %}
+                                    <td style="color: red">
+                                        Заняття не відпрацьовано
+                                    </td>
+                                {% else %}
+                                    <td style="color: green">
+                                        Заняття відпрацьовано на {{ progress.worked_out.worked_on }} |
+                                        {{ progress.worked_out.date_worked_out|date:"d-m-Y"}}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <td colspan="6" class="subject-row"><b>У вас немає пропусків за цей місяць</b></td>
+                {% endif %}
+
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <script src="{% static 'scripts/journal.js' %}"></script>
+    </body>
+    </html>
+{% endblock %}

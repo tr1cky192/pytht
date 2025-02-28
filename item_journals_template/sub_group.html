@@ -1,0 +1,618 @@
+{% extends "item_journals/journal.html" %}
+{% load static %}
+{% load bootstrap5 %}
+
+{% block content %}
+    <!DOCTYPE html>
+    <html lang="uk">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="csrf-token" content="{{ csrf_token }}">
+        <title>Електронний журнал</title>
+        <link rel="stylesheet" href="{% static 'style/mark.css' %}">
+        {% bootstrap_css %}
+        {% bootstrap_javascript %}
+    </head>
+    <body>
+    <main>
+        <div class="error-box" id="error-box">
+            <p style="padding: 10px" id="error-message"></p>
+        </div>
+        <div class="container" id="testContainer">
+            <div id="journal-info">
+                <div class="journal-info-div">
+                    <p class="item_tag"> Успішність студентів з дисципліни: {{ item }} </p>
+                    <button class="custom-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight"
+                            aria-controls="offcanvasRight"><img src="{% static 'images/archive.png' %}" height="45px"
+                                                                width="auto"> <b>Історія операцій </b>
+                    </button>
+                </div>
+                {% if teachers_for_subject %}
+                    <p class="teacher_tag"> Викладач: {% for teacher in teachers_for_subject %}
+                        {{ teacher.first_name }} {{ teacher.last_name }}
+                        {% if not forloop.last %}, {% endif %}
+                    {% endfor %} </p>
+                {% else %}
+                    <p class="teacher_tag"> Вчителя не призначено.</p>
+                {% endif %}
+                {% if curator %}
+                    <p class="teacher_tag">
+                        Куратор: {{ curator.first_name }} {{ curator.last_name }}
+                    </p>
+                {% else %}
+                    <p class="teacher_tag">
+                        Куратора не призначено.
+                    </p>
+                {% endif %}
+                <div class="offcanvas offcanvas-end custom-canvas" tabindex="-1" id="offcanvasRight"
+                     aria-labelledby="offcanvasRightLabel">
+                    <div class="offcanvas-header">
+                        <h4 class="offcanvas-title" id="offcanvasRightLabel"> Історія операцій</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                    </div>
+                    <div class="offcanvas-body">
+                        <div class="history-bar">
+                            <form role="search" method="get"
+                                  action="{% url 'search_journal' item group.group_code "mark" %}">
+                                <input class="student_input" name="q" type="search" placeholder="Пошук..."
+                                       aria-label="Search">
+                                <button type="submit" class="btn btn-outline-light">Знайти</button>
+                            </form>
+                            <a href="{% url 'clear_journal' item group.group_code "mark" %}" class="btn btn-dark">Очистити
+                                історію</a>
+                        </div>
+                        {% for operation in history %}
+                            <div class="history-element-div">
+                                <p><span>{{ operation.operation_date }}</span>:
+                                    Користувач {{ operation.created_by.username }}
+                                    {{ operation.operation }}
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <table class="journal" id="journalTable" border="1">
+                <thead>
+                <tr>
+
+                    <th colspan="2">Студенти</th>
+                    <th>Місяць</th>
+                    <th id="monthHeaderColspan">
+                        <a class="month_butt" id="previousMonth"
+                           href="?month={{ previous_month }}">{{ previous_month_name }}</a>
+                        <span class="current_month" id="currentMonth">{{ current_month_name }}</span>
+                        <a class="month_butt" id="nextMonth" href="?month={{ next_month }}">{{ next_month_name }}</a>
+                    </th>
+                </tr>
+                <tr id="value_type">
+                    <th rowspan="3">Номер студента</th>
+                    <th rowspan="3">ПІБ студента</th>
+                    <th id="type_class">Тип заняття</th>
+                </tr>
+                <tr id="day_class">
+                    <td>День</td>
+                </tr>
+                <tr id="theme_class">
+                    <td>Тема</td>
+                </tr>
+                </thead>
+                <tbody id="studentsBody">
+                </tbody>
+            </table>
+
+            <div id="myModal" class="custom-modal">
+                <div class="custom-modal-content">
+                    <span class="close">&times;</span>
+                    <p id="mark-info"></p>
+                    <div id="checkbox-div" style="display: block;">
+                        <label for="grade_taken">Оцінка не враховується </label>
+                        <input type="checkbox" id="grade-taken"/>
+                    </div>
+                    <div id="multi-mark" style="display: block;">
+                        <p id="mark1"></p>
+                        <label for="grade_taken1">Оцінка не враховується </label>
+                        <input type="checkbox" id="grade-taken1"/>
+                        <p id="mark2"></p>
+                        <label for="grade_taken2">Оцінка не враховується </label>
+                        <input type="checkbox" id="grade-taken2"/>
+                    </div>
+                    <div class="class-buttons">
+                        <a class="student_button" id="ready-button" style="display: block;"> Готово </a>
+                        <button id="delete-button" class="student_button"> Видалити</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="myModal2" class="custom-modal">
+            <div class="custom-modal-content">
+                <span class="close">&times;</span>
+
+                <p id="class-info"></p>
+                <div id="change-lecturer-div">
+                    <label for="change-lecturer"> Призначити заміну </label>
+                </div>
+                <div class="class-buttons">
+                    <a class="student_button" id="ready-button-class"> Готово </a>
+                    <button id="delete-button-class" class="student_button"> Видалити колонку</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="{% static 'scripts/journal.js' %}"></script>
+    <script>
+        var data1 = JSON.parse("{{ data| escapejs }}");
+        var data2 = JSON.parse("{{ data2| escapejs }}");
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var lecturesCount = data1.lectures_count;
+            var colspanValue = lecturesCount + 3;
+            document.getElementById('monthHeaderColspan').setAttribute('colspan', colspanValue);
+        });
+
+        let style_marks = {
+            "Н": "#ff6363",
+            "Г": "#5cc6ff",
+            "НБ": "#fc7f49",
+        }
+
+        for (let i = 0; i < data1["count"]; i++) {
+            let studentTr = document.createElement('tr');
+            studentTr.setAttribute("id", `student-tr-${i}`);
+            studentTr.setAttribute("class", "student_info");
+            document.getElementById("studentsBody").append(studentTr);
+
+            let studentTd = document.createElement("td");
+            studentTd.setAttribute("id", `student-num-${i}`);
+            studentTd.textContent = (i + 1).toString();
+            document.getElementById(`student-tr-${i}`).append(studentTd);
+
+            let studentNameTd = document.createElement("td")
+            studentNameTd.setAttribute("id", `student-name-${i}`);
+            studentNameTd.setAttribute("colspan", "2");
+            studentNameTd.textContent = data1["names"][i];
+            document.getElementById(`student-tr-${i}`).append(studentNameTd);
+
+            for (let j = 0; j < data1["lectures_count"] + 1; j++) {
+                let studentRowInput = document.createElement("input");
+                studentRowInput.setAttribute("class", "student_input");
+                studentRowInput.setAttribute("id", `student-input-${i}-${j}-${data1["students"][i]}`);
+                if (data2[`${studentRowInput.id + "-check"}`]) {
+                    studentRowInput.style.color = "#636160";
+                }
+
+                let progress = data1["progress"].find(p => p["mark_id"] === `student-input-${i}-${j}-${data1["students"][i]}`);
+                if (progress) {
+                    studentRowInput.setAttribute("value", progress["mark"]);
+                    studentRowInput.style.color = style_marks[progress["mark"]];
+                    if (style_marks[progress["mark"]]) {
+                        studentRowInput.disabled = true
+                    }
+                }
+
+                let studentInputTd = document.createElement("td");
+                document.getElementById(`student-tr-${i}`).append(studentInputTd);
+                studentInputTd.setAttribute("id", `student-td-${i}-${j}`);
+                document.getElementById(`student-td-${i}-${j}`).append(studentRowInput);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var studentInputs = document.querySelectorAll('input[id^="student"]');
+            studentInputs.forEach(function (input) {
+                input.addEventListener('change', async function (event) {
+                    let student_id = event.target.id.toString().split("-");
+                    let item_name = document.URL.toString().split("/");
+                    let column_id = student_id[student_id.length - 2];
+
+                    let ident = document.getElementById(`class-identifier-${column_id}`);
+                    var input_data = {
+                        "value": event.target.value,
+                        "student": student_id[student_id.length - 1],
+                        "item_name": item_name[5],
+                        "identifier": ident.value,
+                        "mark_element_id": event.target.id.toString(),
+                        "current_month": "{{ current_month }}",
+                    };
+
+                    fetch('/items/json_data/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify(input_data)
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Success', data);
+                            if (data["status"] === "error") {
+                                let errorBox = document.getElementById("error-box");
+                                errorBox.style.display = 'flex';
+                                let errorMessage = document.getElementById("error-message");
+                                errorMessage.textContent = data["message"];
+
+                                setTimeout(function () {
+                                    errorBox.style.display = 'none'
+                                }, 2000)
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error', error);
+                        })
+                });
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var classInputs = document.querySelectorAll('input[id^="class"], select[id^="class"]');
+
+
+            function getGroupFromURL() {
+                let urlParts = document.URL.split("/");
+                return urlParts[urlParts.length - 2] || '';
+            }
+            function getSubgroupFromURL() {
+                let urlParts = decodeURIComponent(document.URL).split("/");
+                if (urlParts.length >= 5) {
+                    return urlParts[urlParts.length - 2];
+                }
+                return '';
+            }
+            
+            classInputs.forEach(function (input) {
+                input.addEventListener('change', function (event) {
+                    var index = event.target.id.split('-').pop();
+                    var themeValue = document.getElementById(`class-theme-inp-${index}`).value;
+                    var dateValue = document.getElementById(`class-date-inp-${index}`).value;
+                    var typeValue = document.getElementById(`class-lecture-inp-${index}`).value;
+                    let item_name = document.URL.toString().split("/");
+                    let identifier = document.getElementById(`class-identifier-${index}`);
+                    let group = getGroupFromURL();
+                    let subgroup = getSubgroupFromURL();
+
+                    
+                    if (themeValue && dateValue && typeValue) {
+                        var input_data = {
+                            "theme": themeValue,
+                            "date": dateValue,
+                            "type": typeValue,
+                            "item": item_name[5],
+                            "identifier": identifier.value,
+                            "subgroup": subgroup,
+                            "group": group,
+                        };
+
+                        fetch('/items/json_lecture_data/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify(input_data)
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('Success', data);
+                                location.reload();
+                            })
+                            .catch((error) => {
+                                console.error('Error', error);
+                            });
+                    }
+                });
+            });
+        });
+
+        let lecturerChangeDiv = document.getElementById("change-lecturer-div")
+        let teacherSelect = document.createElement('select');
+        teacherSelect.setAttribute("id", "change-lecturer");
+        let firstOption = document.createElement('option');
+        firstOption.value = ""
+        firstOption.textContent = "--Без заміни--"
+        teacherSelect.appendChild(firstOption)
+        data1["all_teachers"].forEach(teacher => {
+            let option = document.createElement('option');
+            option.value = teacher;
+            option.textContent = teacher;
+            teacherSelect.appendChild(option);
+        });
+        lecturerChangeDiv.append(teacherSelect)
+
+        for (let i = 0; i < data1["lectures_count"] + 1; i++) {
+            let typeTd = document.createElement('td');
+            typeTd.setAttribute("id", `class-lecture-td-${i}`);
+            let typeSelect = document.createElement('select');
+            typeSelect.setAttribute("class", "student_input");
+            typeSelect.setAttribute("id", `class-lecture-inp-${i}`);
+            let types = ['Лекція', 'Практичне заняття', 'Семінарське заняття'];
+            types.forEach(type => {
+                let option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                if (i < data1["lectures_count"] && data1["lectures"][i]["type"] === type) {
+                    option.selected = true;
+                }
+                typeSelect.appendChild(option);
+            });
+
+            document.getElementById('value_type').append(typeTd);
+            document.getElementById(`class-lecture-td-${i}`).append(typeSelect);
+
+            let dateTd = document.createElement('td');
+            dateTd.setAttribute("id", `class-day-td-${i}`);
+            let dateInput = document.createElement('input');
+            dateInput.setAttribute("class", "student_input");
+            dateInput.setAttribute("id", `class-date-inp-${i}`);
+            dateInput.setAttribute("type", "date");
+            if (data1["month"] < 10) {
+                dateInput.defaultValue = `${data1["year"]}-0${data1["month"]}-01`
+            } else {
+                dateInput.defaultValue = `${data1["year"]}-${data1["month"]}-01`
+            }
+            if (i < data1["lectures_count"]) {
+                dateInput.setAttribute("value", `${data1["lectures"][i]["date"]}`);
+            }
+
+            document.getElementById('day_class').append(dateTd);
+            document.getElementById(`class-day-td-${i}`).append(dateInput);
+
+            let themeTd = document.createElement('td');
+            themeTd.setAttribute("id", `class-theme-td-${i}`);
+            let themeInput = document.createElement('input');
+            themeInput.setAttribute("class", "student_input");
+            themeInput.setAttribute("id", `class-theme-inp-${i}`);
+            if (i < data1["lectures_count"]) {
+                themeInput.setAttribute("value", `${data1["lectures"][i]["theme"]}`);
+            }
+
+            document.getElementById('theme_class').append(themeTd);
+            document.getElementById(`class-theme-td-${i}`).append(themeInput);
+
+            let identifierInput = document.createElement('input');
+            identifierInput.setAttribute("id", `class-identifier-${i}`);
+            identifierInput.setAttribute("type", "hidden");
+            if (i < data1["lectures_count"]) {
+                identifierInput.setAttribute("value", `${data1["lectures"][i]["identifier"]}`);
+            }
+
+            if (data1['teachers_by_identifier'][identifierInput.value]) {
+                let infoDiv = document.createElement("div")
+                infoDiv.textContent = "Заняття провів " + data1['teachers_by_identifier'][identifierInput.value]
+                infoDiv.setAttribute("class", "info-div")
+                let infoImg = document.createElement("img")
+                infoImg.src = "{% static 'images/info.png' %}"
+                infoImg.setAttribute("height", "20");
+                infoImg.setAttribute("width", "auto");
+                infoImg.setAttribute("class", "info-img")
+
+                typeTd.append(infoImg)
+                typeTd.append(infoDiv)
+            }
+
+            document.getElementById('theme_class').append(identifierInput);
+
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var studentInputs = document.querySelectorAll('input[id^="student"]');
+            studentInputs.forEach(function (input) {
+                input.addEventListener('dblclick', function (event) {
+                    if (event.target.value !== "") {
+                        var modal = document.getElementById("myModal");
+                        var checkBox = document.getElementById("grade-taken");
+                        var checkBox1 = document.getElementById("grade-taken1");
+                        var checkBox2 = document.getElementById("grade-taken2");
+                        modal.style.display = "block";
+                        checkBox.checked = data2[event.target.id.toString() + "-check"];
+
+                        checkBox1.checked = !Boolean(Number(data2[event.target.id.toString() + "-check1"][0]));
+                        checkBox2.checked = !Boolean(Number(data2[event.target.id.toString() + "-check1"][1]));
+
+                        var absentSymbols = ["Н", "НБ", "Г"];
+                        var checkBoxElement = document.getElementById("checkbox-div");
+
+                        var pMark = document.getElementById("mark-info")
+                        pMark.textContent = event.target.value;
+                        window.onclick = function (event) {
+                            if (event.target === modal) {
+                                modal.style.display = "none";
+                            }
+                        };
+
+                        let includeNumbers = ""
+                        var readyButton = document.getElementById("ready-button");
+                        var multiMarkDiv = document.getElementById("multi-mark");
+                        if (event.target.value.toString().includes("/")) {
+                            checkBoxElement.style.display = "none";
+                            readyButton.style.display = "block";
+                            multiMarkDiv.style.display = "block";
+                            let multiMark = event.target.value.toString().split('/');
+                            let mark1P = document.getElementById("mark1");
+                            mark1P.textContent = multiMark[0];
+                            let mark2P = document.getElementById("mark2");
+                            mark2P.textContent = multiMark[1];
+
+                        } else if (absentSymbols.includes(event.target.value.toString())) {
+                            readyButton.style.display = "none";
+                            checkBoxElement.style.display = "none";
+                            multiMarkDiv.style.display = "none";
+                        } else {
+                            readyButton.style.display = "block"
+                            checkBoxElement.style.display = "block"
+                            multiMarkDiv.style.display = "none"
+                        }
+
+                        readyButton.onclick = function () {
+                            if (event.target.value.toString().includes("/")) {
+                                var mark1 = document.getElementById("grade-taken1")
+                                var mark2 = document.getElementById("grade-taken2")
+                                includeNumbers = `${Number(!mark1.checked)}${Number(!mark2.checked)}`
+                                console.log(includeNumbers)
+                            }
+                            var update_json = {
+                                "check_box_result": checkBox.checked,
+                                "mark_id": data2[event.target.id.toString()],
+                                "multi_check_box_result": includeNumbers,
+                            }
+
+                            fetch('/items/update_mark/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCookie('csrftoken')
+                                },
+                                body: JSON.stringify(update_json)
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('Success', data);
+                                    location.reload()
+                                })
+                                .catch((error) => {
+                                    console.error('Error', error);
+
+                                });
+
+                        }
+
+                        var deleteMarkButton = document.getElementById("delete-button");
+                        deleteMarkButton.onclick = function () {
+                            var mark_json = {
+                                "mark_id": data2[event.target.id.toString()]
+                            }
+
+                            fetch('/items/delete_mark/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCookie('csrftoken')
+                                },
+                                body: JSON.stringify(mark_json)
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('Success', data);
+                                    location.reload()
+                                })
+                                .catch((error) => {
+                                    console.error('Error', error);
+                                });
+                        };
+
+                    }
+                });
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var studentInputs = document.querySelectorAll('select[id^="class"]');
+            studentInputs.forEach(function (input) {
+                input.addEventListener('dblclick', function (event) {
+                    if (event.target.value !== "") {
+                        var modal = document.getElementById("myModal2");
+                        modal.style.display = "block";
+                        let elementId = event.target.id.toString().split("-");
+                        var identElement = document.getElementById(`class-identifier-${elementId[3]}`).value;
+
+                        for (let i = 0; i < teacherSelect.length; i++) {
+                            let option = teacherSelect.options[i];
+                            if (data1['teachers_by_identifier'][identElement]) {
+                                if (option.value === data1['teachers_by_identifier'][identElement]) {
+                                    option.selected = true;
+                                }
+                            } else {
+                                firstOption.selected = true;
+                            }
+
+                        }
+
+                        var readyButton = document.getElementById("ready-button-class");
+                        readyButton.onclick = function () {
+                            console.log(teacherSelect.value)
+                            var update_json = {
+                                "lecturer_changed": teacherSelect.value,
+                                "ident": identElement,
+                            }
+
+                            fetch('/items/update_lecture/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCookie('csrftoken')
+                                },
+                                body: JSON.stringify(update_json)
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('Success', data);
+                                    location.reload()
+                                })
+                                .catch((error) => {
+                                    console.error('Error', error);
+                                });
+
+                        }
+
+                        var deleteClassButton = document.getElementById("delete-button-class");
+                        deleteClassButton.onclick = function () {
+                            let elementId = event.target.id.toString().split("-");
+                            var identElement = document.getElementById(`class-identifier-${elementId[3]}`).value
+                            var lecture_json = {
+                                "lecture_ident": identElement,
+                            }
+
+                            fetch('/items/delete_lecture/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': getCookie('csrftoken')
+                                },
+                                body: JSON.stringify(lecture_json)
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log('Success', data);
+                                    location.reload()
+                                })
+                                .catch((error) => {
+                                    console.error('Error', error);
+
+                                });
+                        };
+
+                        var pCLass = document.getElementById("class-info")
+                        pCLass.textContent = event.target.value;
+                        window.onclick = function (event) {
+                            if (event.target === modal) {
+                                modal.style.display = "none";
+                            }
+                        };
+                    }
+                });
+            });
+        });
+
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie) {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+
+            return cookieValue;
+        }
+    </script>
+    </body>
+    </html>
+
+{% endblock %}
